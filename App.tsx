@@ -5,6 +5,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
 
@@ -53,6 +54,14 @@ export default function App() {
   useEffect(() => {
     onLayoutRootView();
   }, [onLayoutRootView]);
+
+  // Every screen but Game is portrait; app.json allows all orientations so the
+  // Game screen can flip to landscape at runtime.
+  useEffect(() => {
+    ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.PORTRAIT_UP
+    ).catch(() => {});
+  }, []);
 
   if (!fontsLoaded) {
     return null;

@@ -5,9 +5,11 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation';
 import { CATEGORIES } from '../data/categories';
@@ -22,6 +24,34 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 type Action = 'correct' | 'pass';
 
 const SWIPE_THRESHOLD = 80;
+const MAX_WORD_LINES = 3;
+// Bebas Neue is condensed: a glyph advances roughly 0.45em, and a line box is
+// roughly 1.1em tall.
+const GLYPH_ADVANCE_EM = 0.45;
+const LINE_HEIGHT_EM = 1.1;
+// Room taken by the top bar, the hint line and the button row.
+const CHROME_HEIGHT = 170;
+
+/**
+ * Biggest font size that still fits `word` inside the available box, trying
+ * one, two and three lines and keeping whichever reads largest. Computed
+ * rather than left to adjustsFontSizeToFit so it behaves the same on every
+ * platform and survives the flip to landscape.
+ */
+function fitWordFontSize(word: string, width: number, height: number) {
+  const boxWidth = Math.max(120, width - spacing.lg * 2);
+  const boxHeight = Math.max(80, height - CHROME_HEIGHT);
+  const charCount = Math.max(word.length, 1);
+
+  let best = 0;
+  for (let lines = 1; lines <= MAX_WORD_LINES; lines++) {
+    const charsPerLine = Math.ceil(charCount / lines);
+    const byWidth = boxWidth / (charsPerLine * GLYPH_ADVANCE_EM);
+    const byHeight = boxHeight / (lines * LINE_HEIGHT_EM);
+    best = Math.max(best, Math.min(byWidth, byHeight));
+  }
+  return Math.max(28, Math.min(150, Math.round(best)));
+}
 
 export default function GameScreen({ route, navigation }: Props) {
   const { categoryId } = route.params;
@@ -31,6 +61,7 @@ export default function GameScreen({ route, navigation }: Props) {
   );
   const { timerDuration, shuffleWords } = useSettings();
   const { status: motionStatus } = useMotionPermission();
+  const { width, height } = useWindowDimensions();
 
   const queueRef = useRef<string[]>([]);
   const lastWordRef = useRef<string | null>(null);
@@ -75,6 +106,20 @@ export default function GameScreen({ route, navigation }: Props) {
     setCurrentWord(drawNextWord());
     // Only run once on mount; category/shuffle changes mid-round shouldn't reset the deck.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The phone goes up to the player's forehead for this screen, so the word
+  // reads widest in landscape. LANDSCAPE (not LANDSCAPE_LEFT) lets it settle
+  // either way up, whichever way they raise the phone.
+  useEffect(() => {
+    ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.LANDSCAPE
+    ).catch(() => {});
+    return () => {
+      ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP
+      ).catch(() => {});
+    };
   }, []);
 
   const finishRound = useCallback(
@@ -219,6 +264,8 @@ export default function GameScreen({ route, navigation }: Props) {
     })
   ).current;
 
+  const wordFontSize = fitWordFontSize(currentWord ?? '', width, height);
+
   const backgroundColor = flashColor.interpolate({
     inputRange: [-1, 0, 1],
     outputRange: [colors.pass, colors.background, colors.correct],
@@ -246,6 +293,7 @@ export default function GameScreen({ route, navigation }: Props) {
         <View style={styles.wordArea} {...panResponder.panHandlers}>
           <Animated.View
             style={{
+              width: '100%',
               opacity: wordOpacity,
               transform: [
                 { translateY: Animated.add(wordTranslate, dragY) },
@@ -253,8 +301,14 @@ export default function GameScreen({ route, navigation }: Props) {
             }}
           >
             <Text
-              style={styles.word}
-              numberOfLines={3}
+              style={[
+                styles.word,
+                {
+                  fontSize: wordFontSize,
+                  lineHeight: Math.round(wordFontSize * LINE_HEIGHT_EM),
+                },
+              ]}
+              numberOfLines={MAX_WORD_LINES}
               adjustsFontSizeToFit
               minimumFontScale={0.4}
             >
@@ -332,10 +386,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+    overflow: 'hidden',
   },
   word: {
     fontFamily: fonts.display,
-    fontSize: 72,
     color: colors.white,
     textAlign: 'center',
     letterSpacing: 1,
@@ -344,7 +398,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 13,
     color: colors.muted,
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
     textAlign: 'center',
   },
   actionsRow: {
