@@ -4,6 +4,7 @@
     "slug": "Filmy-Faces",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#1A0509",
     "ios": {
@@ -14,10 +15,15 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#1A0509"
+        "backgroundColor": "#1A0509",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
-    "web": {}
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
   }
 }
