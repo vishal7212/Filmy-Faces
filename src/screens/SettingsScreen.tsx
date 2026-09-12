@@ -7,6 +7,7 @@ import type { TimerDuration } from '../context/SettingsContext';
 import { useSettings } from '../context/SettingsContext';
 import { colors, fonts, radii, spacing } from '../theme';
 import { MarqueeDots } from '../components/MarqueeFrame';
+import { useResponsive } from '../hooks/useResponsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -15,6 +16,8 @@ const DURATIONS: TimerDuration[] = [30, 60, 90];
 export default function SettingsScreen({ navigation }: Props) {
   const { timerDuration, setTimerDuration, shuffleWords, setShuffleWords } =
     useSettings();
+  const { scale, maxWidth } = useResponsive();
+  const sz = (n: number) => Math.round(n * scale);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -28,12 +31,14 @@ export default function SettingsScreen({ navigation }: Props) {
 
       <View style={styles.header}>
         <MarqueeDots dotCount={9} />
-        <Text style={styles.title}>Settings</Text>
+        <Text style={[styles.title, { fontSize: sz(36) }]}>Settings</Text>
         <MarqueeDots dotCount={9} />
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Timer duration</Text>
+      <View style={[styles.section, { maxWidth, alignSelf: 'center', width: '100%' }]}>
+        <Text style={[styles.sectionLabel, { fontSize: sz(15) }]}>
+          Timer duration
+        </Text>
         <View style={styles.durationRow}>
           {DURATIONS.map((duration) => {
             const selected = duration === timerDuration;
@@ -60,10 +65,12 @@ export default function SettingsScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={styles.section}>
+      <View style={[styles.section, { maxWidth, alignSelf: 'center', width: '100%' }]}>
         <View style={styles.toggleRow}>
           <View style={styles.toggleTextWrap}>
-            <Text style={styles.sectionLabel}>Shuffle words</Text>
+            <Text style={[styles.sectionLabel, { fontSize: sz(15) }]}>
+              Shuffle words
+            </Text>
             <Text style={styles.toggleHint}>
               Randomize word order within each category
             </Text>

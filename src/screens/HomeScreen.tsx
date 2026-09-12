@@ -12,10 +12,14 @@ import type { RootStackParamList } from '../types/navigation';
 import { CATEGORIES } from '../data/categories';
 import { colors, fonts, radii, spacing } from '../theme';
 import { MarqueeDots } from '../components/MarqueeFrame';
+import { useResponsive } from '../hooks/useResponsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
+  const { scale, columns, maxWidth } = useResponsive();
+  const sz = (n: number) => Math.round(n * scale);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -27,8 +31,8 @@ export default function HomeScreen({ navigation }: Props) {
           <Text style={styles.settingsIcon}>⚙️</Text>
         </Pressable>
         <MarqueeDots dotCount={9} />
-        <Text style={styles.title}>Filmy Faces</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, { fontSize: sz(56) }]}>Filmy Faces</Text>
+        <Text style={[styles.subtitle, { fontSize: sz(13) }]}>
           Bollywood, Tollywood & everything desi
         </Text>
         <MarqueeDots dotCount={9} />
@@ -37,9 +41,13 @@ export default function HomeScreen({ navigation }: Props) {
       <FlatList
         data={CATEGORIES}
         keyExtractor={(item) => item.id}
-        numColumns={2}
+        key={`cols-${columns}`}
+        numColumns={columns}
         columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.grid}
+        contentContainerStyle={[
+          styles.grid,
+          { maxWidth, width: '100%', alignSelf: 'center' },
+        ]}
         ListHeaderComponent={
           <Pressable
             style={({ pressed }) => [
@@ -48,12 +56,16 @@ export default function HomeScreen({ navigation }: Props) {
             ]}
             onPress={() => navigation.navigate('CustomWords')}
           >
-            <Text style={styles.customIcon}>✍️</Text>
+            <Text style={[styles.customIcon, { fontSize: sz(28) }]}>✍️</Text>
             <View style={styles.customTextWrap}>
-              <Text style={[styles.cardTitle, styles.customText]}>
+              <Text
+                style={[styles.cardTitle, styles.customText, { fontSize: sz(15) }]}
+              >
                 Your own words
               </Text>
-              <Text style={[styles.cardCount, styles.customText]}>
+              <Text
+                style={[styles.cardCount, styles.customText, { fontSize: sz(12) }]}
+              >
                 The other team types them in
               </Text>
             </View>
@@ -63,15 +75,22 @@ export default function HomeScreen({ navigation }: Props) {
           <Pressable
             style={({ pressed }) => [
               styles.card,
+              { minHeight: sz(140) },
               pressed && styles.cardPressed,
             ]}
             onPress={() =>
               navigation.navigate('Category', { categoryId: item.id })
             }
           >
-            <Text style={styles.cardIcon}>{item.icon}</Text>
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <Text style={styles.cardCount}>{item.words.length} words</Text>
+            <Text style={[styles.cardIcon, { fontSize: sz(32) }]}>
+              {item.icon}
+            </Text>
+            <Text style={[styles.cardTitle, { fontSize: sz(15) }]}>
+              {item.name}
+            </Text>
+            <Text style={[styles.cardCount, { fontSize: sz(12) }]}>
+              {item.words.length} words
+            </Text>
           </Pressable>
         )}
       />

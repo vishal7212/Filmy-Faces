@@ -16,6 +16,8 @@ type Props = {
   variant?: Variant;
   style?: ViewStyle;
   disabled?: boolean;
+  /** Type and padding multiplier, so buttons grow on tablets. */
+  scale?: number;
 };
 
 export function PosterButton({
@@ -24,6 +26,7 @@ export function PosterButton({
   variant = 'gold',
   style,
   disabled,
+  scale = 1,
 }: Props) {
   return (
     <Pressable
@@ -31,6 +34,10 @@ export function PosterButton({
       disabled={disabled}
       style={({ pressed }) => [
         styles.base,
+        {
+          paddingVertical: Math.round(spacing.md * scale),
+          paddingHorizontal: Math.round(spacing.xl * scale),
+        },
         variantStyles[variant],
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
@@ -40,6 +47,7 @@ export function PosterButton({
       <Text
         style={[
           styles.label,
+          { fontSize: Math.round(17 * scale) },
           variant === 'outline' ? styles.labelOutline : styles.labelSolid,
         ]}
       >

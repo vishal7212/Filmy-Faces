@@ -8,10 +8,7 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#1A0509",
     "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSMotionUsageDescription": "Filmy Faces uses motion data so you can tilt your phone to mark a word correct or pass, hands-free, while it's held to your forehead."
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {

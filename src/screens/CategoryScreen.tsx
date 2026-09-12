@@ -8,6 +8,7 @@ import { colors, fonts, spacing } from '../theme';
 import { PosterButton } from '../components/PosterButton';
 import { MarqueeDots } from '../components/MarqueeFrame';
 import { useSettings } from '../context/SettingsContext';
+import { useResponsive } from '../hooks/useResponsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Category'>;
 
@@ -15,6 +16,8 @@ export default function CategoryScreen({ route, navigation }: Props) {
   const { categoryId } = route.params;
   const category = CATEGORIES.find((c) => c.id === categoryId);
   const { timerDuration } = useSettings();
+  const { scale, maxWidth } = useResponsive();
+  const sz = (n: number) => Math.round(n * scale);
 
   if (!category) {
     return (
@@ -34,25 +37,28 @@ export default function CategoryScreen({ route, navigation }: Props) {
         <Text style={styles.backText}>‹ Back</Text>
       </Pressable>
 
-      <View style={styles.content}>
-        <Text style={styles.icon}>{category.icon}</Text>
+      <View style={[styles.content, { maxWidth, alignSelf: 'center' }]}>
+        <Text style={[styles.icon, { fontSize: sz(64) }]}>{category.icon}</Text>
         <MarqueeDots dotCount={9} />
-        <Text style={styles.title}>{category.name}</Text>
-        <Text style={styles.count}>{category.words.length} words</Text>
+        <Text style={[styles.title, { fontSize: sz(38) }]}>
+          {category.name}
+        </Text>
+        <Text style={[styles.count, { fontSize: sz(14) }]}>
+          {category.words.length} words
+        </Text>
         <MarqueeDots dotCount={9} />
 
-        <Text style={styles.instructions}>
+        <Text style={[styles.instructions, { fontSize: sz(14), lineHeight: sz(21) }]}>
           You get 5 seconds to put the phone on your forehead, screen facing
-          out, so your friends can see the word. Tilt down for correct, tilt
-          up to pass — or use the buttons on screen. The round lasts{' '}
+          out, so your friends can see the word. Swipe down or tap Correct
+          when they guess it, swipe up to pass. The round lasts{' '}
           {timerDuration} seconds.
         </Text>
 
         <PosterButton
           label="Start"
-          onPress={() =>
-            navigation.navigate('MotionPermission', { categoryId })
-          }
+          scale={scale}
+          onPress={() => navigation.navigate('Game', { categoryId })}
           style={styles.startButton}
         />
       </View>
@@ -76,6 +82,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,

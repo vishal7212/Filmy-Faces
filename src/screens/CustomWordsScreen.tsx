@@ -14,6 +14,7 @@ import { CUSTOM_CATEGORY_ID } from '../types/navigation';
 import { colors, fonts, radii, spacing } from '../theme';
 import { PosterButton } from '../components/PosterButton';
 import { MarqueeDots } from '../components/MarqueeFrame';
+import { useResponsive } from '../hooks/useResponsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CustomWords'>;
 
@@ -27,6 +28,8 @@ export default function CustomWordsScreen({ navigation }: Props) {
   const [words, setWords] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const { scale, maxWidth } = useResponsive();
+  const sz = (n: number) => Math.round(n * scale);
 
   const existing = useMemo(
     () => new Set(words.map((word) => word.toLowerCase())),
@@ -69,7 +72,7 @@ export default function CustomWordsScreen({ navigation }: Props) {
 
       <View style={styles.header}>
         <MarqueeDots dotCount={9} />
-        <Text style={styles.title}>Your own words</Text>
+        <Text style={[styles.title, { fontSize: sz(36) }]}>Your own words</Text>
         <MarqueeDots dotCount={9} />
         <Text style={styles.blurb}>
           Hand the phone to the other team — they type the words, you don't
@@ -77,7 +80,7 @@ export default function CustomWordsScreen({ navigation }: Props) {
         </Text>
       </View>
 
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { maxWidth, width: '100%', alignSelf: 'center' }]}>
         <TextInput
           ref={inputRef}
           value={draft}
@@ -109,7 +112,7 @@ export default function CustomWordsScreen({ navigation }: Props) {
 
       {notice && <Text style={styles.notice}>{notice}</Text>}
 
-      <View style={styles.listWrap}>
+      <View style={[styles.listWrap, { maxWidth, width: '100%', alignSelf: 'center' }]}>
         <Text style={styles.listLabel}>
           {words.length === 0
             ? 'No words yet'
@@ -133,12 +136,13 @@ export default function CustomWordsScreen({ navigation }: Props) {
         />
       </View>
 
-      <View style={styles.actions}>
+      <View style={[styles.actions, { maxWidth, width: '100%', alignSelf: 'center' }]}>
         <PosterButton
           label={words.length === 0 ? 'Add a word to start' : 'Start round'}
           disabled={words.length === 0}
+          scale={scale}
           onPress={() =>
-            navigation.navigate('MotionPermission', {
+            navigation.navigate('Game', {
               categoryId: CUSTOM_CATEGORY_ID,
               customWords: words,
             })

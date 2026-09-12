@@ -5,7 +5,6 @@ export type RootStackParamList = {
   Home: undefined;
   Category: { categoryId: string };
   CustomWords: undefined;
-  MotionPermission: { categoryId: string; customWords?: string[] };
   Game: { categoryId: string; customWords?: string[] };
   End: {
     categoryId: string;

@@ -7,6 +7,7 @@ import { CATEGORIES } from '../data/categories';
 import { colors, fonts, radii, spacing } from '../theme';
 import { PosterButton } from '../components/PosterButton';
 import { MarqueeDots } from '../components/MarqueeFrame';
+import { useResponsive } from '../hooks/useResponsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'End'>;
 
@@ -15,20 +16,24 @@ export default function EndScreen({ route, navigation }: Props) {
     route.params;
   const category = CATEGORIES.find((c) => c.id === categoryId);
   const deckName = customWords ? 'Your own words' : (category?.name ?? 'Words');
+  const { scale, maxWidth } = useResponsive();
+  const sz = (n: number) => Math.round(n * scale);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <MarqueeDots dotCount={9} />
-        <Text style={styles.title}>Time's up!</Text>
-        <Text style={styles.score}>
+        <Text style={[styles.title, { fontSize: sz(34) }]}>Time's up!</Text>
+        <Text style={[styles.score, { fontSize: sz(64) }]}>
           {score} / {totalShown}
         </Text>
-        <Text style={styles.subtitle}>{deckName} guessed correctly</Text>
+        <Text style={[styles.subtitle, { fontSize: sz(13) }]}>
+          {deckName} guessed correctly
+        </Text>
         <MarqueeDots dotCount={9} />
       </View>
 
-      <View style={styles.listWrap}>
+      <View style={[styles.listWrap, { maxWidth, width: '100%', alignSelf: 'center' }]}>
         <Text style={styles.listLabel}>
           {correctWords.length > 0 ? 'Correct words' : 'No correct words yet — try again!'}
         </Text>
@@ -45,17 +50,19 @@ export default function EndScreen({ route, navigation }: Props) {
         />
       </View>
 
-      <View style={styles.actions}>
+      <View style={[styles.actions, { maxWidth, width: '100%', alignSelf: 'center' }]}>
         <PosterButton
           label="Play again"
+          scale={scale}
           onPress={() =>
-            navigation.replace('MotionPermission', { categoryId, customWords })
+            navigation.replace('Game', { categoryId, customWords })
           }
           style={styles.button}
         />
         <PosterButton
           label={customWords ? 'New words' : 'Change category'}
           variant="outline"
+          scale={scale}
           onPress={() =>
             navigation.reset({
               index: 1,

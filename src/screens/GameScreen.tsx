@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -16,8 +15,7 @@ import { CATEGORIES } from '../data/categories';
 import { colors, fonts, radii, spacing } from '../theme';
 import { PosterButton } from '../components/PosterButton';
 import { useSettings } from '../context/SettingsContext';
-import { useTiltControl } from '../hooks/useTiltControl';
-import { useMotionPermission } from '../hooks/useMotionPermission';
+import { useResponsive } from '../hooks/useResponsive';
 import { buildDeck } from '../utils/deck';
 import { loadSeenWords, saveSeenWords } from '../storage/seenWords';
 
@@ -33,7 +31,8 @@ const MAX_WORD_LINES = 3;
 // roughly 1.1em tall.
 const GLYPH_ADVANCE_EM = 0.45;
 const LINE_HEIGHT_EM = 1.1;
-// Room taken by the top bar, the hint line and the button row.
+// Room taken by the top bar, the hint line and the button row, which all grow
+// with the type scale.
 const CHROME_HEIGHT = 170;
 
 /**
@@ -41,10 +40,19 @@ const CHROME_HEIGHT = 170;
  * one, two and three lines and keeping whichever reads largest. Computed
  * rather than left to adjustsFontSizeToFit so it behaves the same on every
  * platform and survives the flip to landscape.
+ *
+ * The ceiling tracks screen height rather than being a fixed number: a phone
+ * lands near 150 as before, while a tablet is allowed to go much larger so the
+ * word still reads from across the room.
  */
-function fitWordFontSize(word: string, width: number, height: number) {
+function fitWordFontSize(
+  word: string,
+  width: number,
+  height: number,
+  scale: number
+) {
   const boxWidth = Math.max(120, width - spacing.lg * 2);
-  const boxHeight = Math.max(80, height - CHROME_HEIGHT);
+  const boxHeight = Math.max(80, height - CHROME_HEIGHT * scale);
   const charCount = Math.max(word.length, 1);
 
   let best = 0;
@@ -54,7 +62,9 @@ function fitWordFontSize(word: string, width: number, height: number) {
     const byHeight = boxHeight / (lines * LINE_HEIGHT_EM);
     best = Math.max(best, Math.min(byWidth, byHeight));
   }
-  return Math.max(28, Math.min(150, Math.round(best)));
+
+  const ceiling = Math.max(120, Math.min(300, Math.round(height * 0.38)));
+  return Math.max(28, Math.min(ceiling, Math.round(best)));
 }
 
 export default function GameScreen({ route, navigation }: Props) {
@@ -71,8 +81,8 @@ export default function GameScreen({ route, navigation }: Props) {
   // Player-typed lists are one-offs, so they get no persisted seen-history.
   const persistKey = customWords ? null : categoryId;
   const { timerDuration, shuffleWords } = useSettings();
-  const { status: motionStatus } = useMotionPermission();
-  const { width, height } = useWindowDimensions();
+  const { width, height, scale } = useResponsive();
+  const sz = (n: number) => Math.round(n * scale);
 
   const queueRef = useRef<string[]>([]);
   const lastWordRef = useRef<string | null>(null);
@@ -178,10 +188,9 @@ export default function GameScreen({ route, navigation }: Props) {
     [navigation, categoryId, customWords, persistKey]
   );
 
-  // "Get ready" countdown. Holds the word, the round clock and the tilt
-  // sensor until the phone is actually up on the player's forehead — tilt
-  // calibrates its neutral baseline the moment it's enabled, so starting it
-  // any earlier would zero it against a phone still down in their hand.
+  // "Get ready" countdown. Holds the word and the round clock until the phone
+  // is actually up on the player's forehead, so no time is burned getting it
+  // there and nobody catches sight of the first word on the way up.
   useEffect(() => {
     if (phase !== 'ready') return;
 
@@ -315,14 +324,6 @@ export default function GameScreen({ route, navigation }: Props) {
     ]
   );
 
-  const tiltEnabled =
-    phase === 'playing' && motionStatus === 'granted' && !isRoundOver;
-  useTiltControl({
-    enabled: tiltEnabled,
-    onCorrect: () => handleAction('correct'),
-    onPass: () => handleAction('pass'),
-  });
-
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -350,7 +351,7 @@ export default function GameScreen({ route, navigation }: Props) {
     })
   ).current;
 
-  const wordFontSize = fitWordFontSize(currentWord ?? '', width, height);
+  const wordFontSize = fitWordFontSize(currentWord ?? '', width, height, scale);
 
   const backgroundColor = flashColor.interpolate({
     inputRange: [-1, 0, 1],
@@ -369,19 +370,22 @@ export default function GameScreen({ route, navigation }: Props) {
     return (
       <View style={[styles.container, styles.readyContainer]}>
         <SafeAreaView style={[styles.safe, styles.readyContent]}>
-          <Text style={styles.readyCategory}>{deckName}</Text>
+          <Text style={[styles.readyCategory, { fontSize: sz(14) }]}>
+            {deckName}
+          </Text>
           <Animated.Text
             style={[
               styles.readyCount,
+              { fontSize: sz(96), lineHeight: sz(104) },
               { transform: [{ scale: readyPulse }] },
             ]}
           >
             {readyCount > 0 ? readyCount : 'Go!'}
           </Animated.Text>
-          <Text style={styles.readyPrompt}>
+          <Text style={[styles.readyPrompt, { fontSize: sz(20) }]}>
             Put the phone on your forehead
           </Text>
-          <Text style={styles.readySub}>
+          <Text style={[styles.readySub, { fontSize: sz(13) }]}>
             Screen facing out, so everyone else can read it
           </Text>
         </SafeAreaView>
@@ -393,11 +397,17 @@ export default function GameScreen({ route, navigation }: Props) {
     <Animated.View style={[styles.container, { backgroundColor }]}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.topBar}>
-          <Text style={styles.categoryLabel}>{deckName}</Text>
+          <Text style={[styles.categoryLabel, { fontSize: sz(13) }]}>
+            {deckName}
+          </Text>
           <View style={styles.timerPill}>
-            <Text style={styles.timerText}>{timeLeft}s</Text>
+            <Text style={[styles.timerText, { fontSize: sz(16) }]}>
+              {timeLeft}s
+            </Text>
           </View>
-          <Text style={styles.scoreLabel}>Score {score}</Text>
+          <Text style={[styles.scoreLabel, { fontSize: sz(13) }]}>
+            Score {score}
+          </Text>
         </View>
 
         <View style={styles.wordArea} {...panResponder.panHandlers}>
@@ -425,10 +435,8 @@ export default function GameScreen({ route, navigation }: Props) {
               {currentWord ?? ''}
             </Text>
           </Animated.View>
-          <Text style={styles.hint}>
-            {tiltEnabled
-              ? 'Tilt down = correct · Tilt up = pass'
-              : 'Swipe down = correct · Swipe up = pass'}
+          <Text style={[styles.hint, { fontSize: sz(13) }]}>
+            Swipe down = correct · Swipe up = pass
           </Text>
         </View>
 
@@ -436,12 +444,14 @@ export default function GameScreen({ route, navigation }: Props) {
           <PosterButton
             label="Pass"
             variant="pass"
+            scale={scale}
             onPress={() => handleAction('pass')}
             style={styles.actionButton}
           />
           <PosterButton
             label="Correct"
             variant="correct"
+            scale={scale}
             onPress={() => handleAction('correct')}
             style={styles.actionButton}
           />
