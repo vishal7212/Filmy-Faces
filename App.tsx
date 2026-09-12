@@ -15,6 +15,7 @@ import type { RootStackParamList } from './src/types/navigation';
 
 import HomeScreen from './src/screens/HomeScreen';
 import CategoryScreen from './src/screens/CategoryScreen';
+import CustomWordsScreen from './src/screens/CustomWordsScreen';
 import MotionPermissionScreen from './src/screens/MotionPermissionScreen';
 import GameScreen from './src/screens/GameScreen';
 import EndScreen from './src/screens/EndScreen';
@@ -83,6 +84,7 @@ export default function App() {
             >
               <Stack.Screen name="Home" component={HomeScreen} />
               <Stack.Screen name="Category" component={CategoryScreen} />
+              <Stack.Screen name="CustomWords" component={CustomWordsScreen} />
               <Stack.Screen
                 name="MotionPermission"
                 component={MotionPermissionScreen}

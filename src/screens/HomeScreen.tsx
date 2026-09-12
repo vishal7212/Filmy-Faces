@@ -40,6 +40,25 @@ export default function HomeScreen({ navigation }: Props) {
         numColumns={2}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.grid}
+        ListHeaderComponent={
+          <Pressable
+            style={({ pressed }) => [
+              styles.customCard,
+              pressed && styles.cardPressed,
+            ]}
+            onPress={() => navigation.navigate('CustomWords')}
+          >
+            <Text style={styles.customIcon}>✍️</Text>
+            <View style={styles.customTextWrap}>
+              <Text style={[styles.cardTitle, styles.customText]}>
+                Your own words
+              </Text>
+              <Text style={[styles.cardCount, styles.customText]}>
+                The other team types them in
+              </Text>
+            </View>
+          </Pressable>
+        }
         renderItem={({ item }) => (
           <Pressable
             style={({ pressed }) => [
@@ -115,6 +134,27 @@ const styles = StyleSheet.create({
   cardPressed: {
     transform: [{ scale: 0.97 }],
     backgroundColor: colors.maroon,
+  },
+  customCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.maroonDeep,
+    borderWidth: 2,
+    borderColor: colors.gold,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  customIcon: {
+    fontSize: 28,
+  },
+  customTextWrap: {
+    flex: 1,
+  },
+  customText: {
+    textAlign: 'left',
   },
   cardIcon: {
     fontSize: 32,

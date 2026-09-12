@@ -11,12 +11,12 @@ import { useMotionPermission } from '../hooks/useMotionPermission';
 type Props = NativeStackScreenProps<RootStackParamList, 'MotionPermission'>;
 
 export default function MotionPermissionScreen({ route, navigation }: Props) {
-  const { categoryId } = route.params;
+  const { categoryId, customWords } = route.params;
   const { status, checked, request } = useMotionPermission();
 
   const goToGame = useCallback(() => {
-    navigation.replace('Game', { categoryId });
-  }, [navigation, categoryId]);
+    navigation.replace('Game', { categoryId, customWords });
+  }, [navigation, categoryId, customWords]);
 
   useEffect(() => {
     if (checked && status === 'granted') {

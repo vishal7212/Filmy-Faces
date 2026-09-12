@@ -18,7 +18,8 @@ import { PosterButton } from '../components/PosterButton';
 import { useSettings } from '../context/SettingsContext';
 import { useTiltControl } from '../hooks/useTiltControl';
 import { useMotionPermission } from '../hooks/useMotionPermission';
-import { shuffleArray } from '../utils/shuffle';
+import { buildDeck } from '../utils/deck';
+import { loadSeenWords, saveSeenWords } from '../storage/seenWords';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 type Action = 'correct' | 'pass';
@@ -57,11 +58,18 @@ function fitWordFontSize(word: string, width: number, height: number) {
 }
 
 export default function GameScreen({ route, navigation }: Props) {
-  const { categoryId } = route.params;
+  const { categoryId, customWords } = route.params;
   const category = useMemo(
     () => CATEGORIES.find((c) => c.id === categoryId),
     [categoryId]
   );
+  const deckWords = useMemo(
+    () => customWords ?? category?.words ?? [],
+    [customWords, category]
+  );
+  const deckName = customWords ? 'Your own words' : (category?.name ?? '');
+  // Player-typed lists are one-offs, so they get no persisted seen-history.
+  const persistKey = customWords ? null : categoryId;
   const { timerDuration, shuffleWords } = useSettings();
   const { status: motionStatus } = useMotionPermission();
   const { width, height } = useWindowDimensions();
@@ -70,6 +78,13 @@ export default function GameScreen({ route, navigation }: Props) {
   const lastWordRef = useRef<string | null>(null);
   const isAnimatingRef = useRef(false);
   const isRoundOverRef = useRef(false);
+  // Words served so far in the current pass through this category, carried
+  // across rounds so a second round deals what players haven't had yet.
+  const cycleSeenRef = useRef<string[]>([]);
+  // Words shown in this round alone, kept so a mid-round cycle reset can push
+  // them to the back rather than repeating one the player just saw.
+  const roundShownRef = useRef<string[]>([]);
+  const [deckReady, setDeckReady] = useState(false);
 
   const [currentWord, setCurrentWord] = useState<string | null>(null);
   const [score, setScore] = useState(0);
@@ -87,29 +102,45 @@ export default function GameScreen({ route, navigation }: Props) {
   const readyPulse = useRef(new Animated.Value(1)).current;
 
   const refillQueue = useCallback(() => {
-    const source = category?.words ?? [];
-    let next = shuffleWords ? shuffleArray(source) : [...source];
-    if (
-      next.length > 1 &&
-      lastWordRef.current != null &&
-      next[0] === lastWordRef.current
-    ) {
-      [next[0], next[1]] = [next[1], next[0]];
-    }
-    queueRef.current = next;
-  }, [category, shuffleWords]);
+    const { words, cycleReset } = buildDeck(
+      deckWords,
+      cycleSeenRef.current,
+      roundShownRef.current,
+      lastWordRef.current,
+      shuffleWords
+    );
+    if (cycleReset) cycleSeenRef.current = [];
+    queueRef.current = words;
+  }, [deckWords, shuffleWords]);
 
   const drawNextWord = useCallback((): string | null => {
     if (queueRef.current.length === 0) refillQueue();
     const word = queueRef.current.shift() ?? null;
     lastWordRef.current = word;
+    if (word != null) {
+      cycleSeenRef.current.push(word);
+      roundShownRef.current.push(word);
+    }
     return word;
   }, [refillQueue]);
 
-  // Initial deck + first word.
+  // Initial deck + first word. Reading the seen-history is async, but the
+  // ready countdown covers it — the word isn't shown until Go either way.
   useEffect(() => {
-    refillQueue();
-    setCurrentWord(drawNextWord());
+    let cancelled = false;
+    (async () => {
+      if (persistKey) {
+        const seen = await loadSeenWords(persistKey, deckWords);
+        if (cancelled) return;
+        cycleSeenRef.current = seen;
+      }
+      refillQueue();
+      setCurrentWord(drawNextWord());
+      setDeckReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
     // Only run once on mount; category/shuffle changes mid-round shouldn't reset the deck.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -133,14 +164,18 @@ export default function GameScreen({ route, navigation }: Props) {
       if (isRoundOverRef.current) return;
       isRoundOverRef.current = true;
       setIsRoundOver(true);
+      if (persistKey) {
+        saveSeenWords(persistKey, cycleSeenRef.current);
+      }
       navigation.replace('End', {
         categoryId,
+        customWords,
         score: finalScore,
         totalShown: finalShown,
         correctWords: finalCorrect,
       });
     },
-    [navigation, categoryId]
+    [navigation, categoryId, customWords, persistKey]
   );
 
   // "Get ready" countdown. Holds the word, the round clock and the tilt
@@ -151,6 +186,8 @@ export default function GameScreen({ route, navigation }: Props) {
     if (phase !== 'ready') return;
 
     if (readyCount <= 0) {
+      // Hold at zero until the deck is dealt; this re-runs when it lands.
+      if (!deckReady) return;
       Haptics.notificationAsync(
         Haptics.NotificationFeedbackType.Success
       ).catch(() => {});
@@ -169,7 +206,7 @@ export default function GameScreen({ route, navigation }: Props) {
 
     const id = setTimeout(() => setReadyCount((c) => c - 1), 1000);
     return () => clearTimeout(id);
-  }, [phase, readyCount, readyPulse]);
+  }, [phase, readyCount, readyPulse, deckReady]);
 
   // Round timer.
   useEffect(() => {
@@ -320,10 +357,10 @@ export default function GameScreen({ route, navigation }: Props) {
     outputRange: [colors.pass, colors.background, colors.correct],
   });
 
-  if (!category) {
+  if (deckWords.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.timerText}>Category not found.</Text>
+      <SafeAreaView style={[styles.container, styles.readyContainer]}>
+        <Text style={styles.timerText}>No words to play.</Text>
       </SafeAreaView>
     );
   }
@@ -332,7 +369,7 @@ export default function GameScreen({ route, navigation }: Props) {
     return (
       <View style={[styles.container, styles.readyContainer]}>
         <SafeAreaView style={[styles.safe, styles.readyContent]}>
-          <Text style={styles.readyCategory}>{category.name}</Text>
+          <Text style={styles.readyCategory}>{deckName}</Text>
           <Animated.Text
             style={[
               styles.readyCount,
@@ -356,7 +393,7 @@ export default function GameScreen({ route, navigation }: Props) {
     <Animated.View style={[styles.container, { backgroundColor }]}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.topBar}>
-          <Text style={styles.categoryLabel}>{category.name}</Text>
+          <Text style={styles.categoryLabel}>{deckName}</Text>
           <View style={styles.timerPill}>
             <Text style={styles.timerText}>{timeLeft}s</Text>
           </View>

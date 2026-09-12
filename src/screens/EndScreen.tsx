@@ -11,8 +11,10 @@ import { MarqueeDots } from '../components/MarqueeFrame';
 type Props = NativeStackScreenProps<RootStackParamList, 'End'>;
 
 export default function EndScreen({ route, navigation }: Props) {
-  const { categoryId, score, totalShown, correctWords } = route.params;
+  const { categoryId, customWords, score, totalShown, correctWords } =
+    route.params;
   const category = CATEGORIES.find((c) => c.id === categoryId);
+  const deckName = customWords ? 'Your own words' : (category?.name ?? 'Words');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -22,9 +24,7 @@ export default function EndScreen({ route, navigation }: Props) {
         <Text style={styles.score}>
           {score} / {totalShown}
         </Text>
-        <Text style={styles.subtitle}>
-          {category ? category.name : 'Words'} guessed correctly
-        </Text>
+        <Text style={styles.subtitle}>{deckName} guessed correctly</Text>
         <MarqueeDots dotCount={9} />
       </View>
 
@@ -49,17 +49,22 @@ export default function EndScreen({ route, navigation }: Props) {
         <PosterButton
           label="Play again"
           onPress={() =>
-            navigation.replace('MotionPermission', { categoryId })
+            navigation.replace('MotionPermission', { categoryId, customWords })
           }
           style={styles.button}
         />
         <PosterButton
-          label="Change category"
+          label={customWords ? 'New words' : 'Change category'}
           variant="outline"
           onPress={() =>
             navigation.reset({
               index: 1,
-              routes: [{ name: 'Home' }, { name: 'Category', params: { categoryId } }],
+              routes: [
+                { name: 'Home' },
+                customWords
+                  ? { name: 'CustomWords' }
+                  : { name: 'Category', params: { categoryId } },
+              ],
             })
           }
           style={styles.button}
