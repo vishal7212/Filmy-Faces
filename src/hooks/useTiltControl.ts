@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { DeviceMotion } from 'expo-sensors';
+import { screenNodDegrees } from '../utils/tilt';
 
 const UPDATE_INTERVAL_MS = 100;
 const SMOOTHING_WINDOW = 5;
@@ -16,20 +17,18 @@ type UseTiltControlOptions = {
   onPass: () => void;
 };
 
-function radToDeg(rad: number) {
-  return (rad * 180) / Math.PI;
-}
-
 /**
  * Tilt-to-play control for the Game screen.
  *
- * Calibrates a neutral baseline from the first reading after (re)enabling,
- * so it works regardless of how the player is holding the phone against
- * their forehead. Smooths raw readings with a 5-sample moving average, then
- * requires the smoothed angle to clear +30deg (correct) or -30deg (pass)
- * relative to that baseline. -15deg..+15deg is a dead zone. After firing, the
- * phone must swing back through the dead zone AND 600ms must pass before the
- * next tilt can fire, so one big tilt motion can't double-fire.
+ * Measures the nod of the screen via `screenNodDegrees`, which works the same
+ * in portrait and landscape. Calibrates a neutral baseline from the first
+ * reading after (re)enabling, so it works regardless of the angle the player
+ * happens to hold the phone at against their forehead. Smooths raw readings
+ * with a 5-sample moving average, then requires the smoothed angle to clear
+ * +30deg (nod down, correct) or -30deg (nod up, pass) relative to that
+ * baseline. -15deg..+15deg is a dead zone. After firing, the phone must swing
+ * back through the dead zone AND 600ms must pass before the next tilt can
+ * fire, so one big tilt motion can't double-fire.
  */
 export function useTiltControl({
   enabled,
@@ -66,12 +65,26 @@ export function useTiltControl({
       return;
     }
 
-    function handleMeasurement(measurement: { rotation?: { beta?: number } }) {
+    function handleMeasurement(measurement: {
+      accelerationIncludingGravity?: {
+        x: number;
+        y: number;
+        z: number;
+      } | null;
+    }) {
       if (!isMounted) return;
-      const beta = measurement.rotation?.beta;
-      if (beta == null || Number.isNaN(beta)) return;
+      const gravity = measurement.accelerationIncludingGravity;
+      if (!gravity) return;
+      const { x, y, z } = gravity;
+      if (
+        !Number.isFinite(x) ||
+        !Number.isFinite(y) ||
+        !Number.isFinite(z)
+      ) {
+        return;
+      }
 
-      const degrees = radToDeg(beta);
+      const degrees = screenNodDegrees({ x, y, z });
 
       if (baselineRef.current == null) {
         baselineRef.current = degrees;
