@@ -29,7 +29,7 @@ export default function HomeScreen({ navigation }: Props) {
         <MarqueeDots dotCount={9} />
         <Text style={styles.title}>Filmy Faces</Text>
         <Text style={styles.subtitle}>
-          The Bollywood heads-up charades game
+          Bollywood, Tollywood & everything desi
         </Text>
         <MarqueeDots dotCount={9} />
       </View>

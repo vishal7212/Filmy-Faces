@@ -22,8 +22,11 @@ import { shuffleArray } from '../utils/shuffle';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 type Action = 'correct' | 'pass';
+type Phase = 'ready' | 'playing';
 
 const SWIPE_THRESHOLD = 80;
+// Long enough to get the phone from "pressed Start" to forehead height.
+const READY_SECONDS = 5;
 const MAX_WORD_LINES = 3;
 // Bebas Neue is condensed: a glyph advances roughly 0.45em, and a line box is
 // roughly 1.1em tall.
@@ -74,11 +77,14 @@ export default function GameScreen({ route, navigation }: Props) {
   const [shownCount, setShownCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number>(timerDuration);
   const [isRoundOver, setIsRoundOver] = useState(false);
+  const [phase, setPhase] = useState<Phase>('ready');
+  const [readyCount, setReadyCount] = useState(READY_SECONDS);
 
   const wordOpacity = useRef(new Animated.Value(1)).current;
   const wordTranslate = useRef(new Animated.Value(0)).current;
   const flashColor = useRef(new Animated.Value(0)).current;
   const dragY = useRef(new Animated.Value(0)).current;
+  const readyPulse = useRef(new Animated.Value(1)).current;
 
   const refillQueue = useCallback(() => {
     const source = category?.words ?? [];
@@ -137,20 +143,61 @@ export default function GameScreen({ route, navigation }: Props) {
     [navigation, categoryId]
   );
 
-  // Countdown timer.
+  // "Get ready" countdown. Holds the word, the round clock and the tilt
+  // sensor until the phone is actually up on the player's forehead — tilt
+  // calibrates its neutral baseline the moment it's enabled, so starting it
+  // any earlier would zero it against a phone still down in their hand.
   useEffect(() => {
-    if (isRoundOver) return;
+    if (phase !== 'ready') return;
+
+    if (readyCount <= 0) {
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
+      ).catch(() => {});
+      setPhase('playing');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    readyPulse.setValue(0.65);
+    Animated.spring(readyPulse, {
+      toValue: 1,
+      friction: 4,
+      tension: 90,
+      useNativeDriver: true,
+    }).start();
+
+    const id = setTimeout(() => setReadyCount((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [phase, readyCount, readyPulse]);
+
+  // Round timer.
+  useEffect(() => {
+    if (phase !== 'playing' || isRoundOver) return;
     if (timeLeft <= 0) {
       finishRound(score, shownCount, correctWords);
       return;
     }
     const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(id);
-  }, [timeLeft, isRoundOver, finishRound, score, shownCount, correctWords]);
+  }, [
+    phase,
+    timeLeft,
+    isRoundOver,
+    finishRound,
+    score,
+    shownCount,
+    correctWords,
+  ]);
 
   const handleAction = useCallback(
     (action: Action) => {
-      if (isAnimatingRef.current || isRoundOverRef.current || !currentWord) {
+      if (
+        phase !== 'playing' ||
+        isAnimatingRef.current ||
+        isRoundOverRef.current ||
+        !currentWord
+      ) {
         return;
       }
       isAnimatingRef.current = true;
@@ -217,6 +264,7 @@ export default function GameScreen({ route, navigation }: Props) {
       });
     },
     [
+      phase,
       currentWord,
       score,
       shownCount,
@@ -230,7 +278,8 @@ export default function GameScreen({ route, navigation }: Props) {
     ]
   );
 
-  const tiltEnabled = motionStatus === 'granted' && !isRoundOver;
+  const tiltEnabled =
+    phase === 'playing' && motionStatus === 'granted' && !isRoundOver;
   useTiltControl({
     enabled: tiltEnabled,
     onCorrect: () => handleAction('correct'),
@@ -276,6 +325,30 @@ export default function GameScreen({ route, navigation }: Props) {
       <SafeAreaView style={styles.container}>
         <Text style={styles.timerText}>Category not found.</Text>
       </SafeAreaView>
+    );
+  }
+
+  if (phase === 'ready') {
+    return (
+      <View style={[styles.container, styles.readyContainer]}>
+        <SafeAreaView style={[styles.safe, styles.readyContent]}>
+          <Text style={styles.readyCategory}>{category.name}</Text>
+          <Animated.Text
+            style={[
+              styles.readyCount,
+              { transform: [{ scale: readyPulse }] },
+            ]}
+          >
+            {readyCount > 0 ? readyCount : 'Go!'}
+          </Animated.Text>
+          <Text style={styles.readyPrompt}>
+            Put the phone on your forehead
+          </Text>
+          <Text style={styles.readySub}>
+            Screen facing out, so everyone else can read it
+          </Text>
+        </SafeAreaView>
+      </View>
     );
   }
 
@@ -347,6 +420,41 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
+  },
+  readyContainer: {
+    backgroundColor: colors.background,
+  },
+  readyContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  readyCategory: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 14,
+    color: colors.muted,
+    marginBottom: spacing.xs,
+  },
+  readyCount: {
+    fontFamily: fonts.display,
+    fontSize: 96,
+    lineHeight: 104,
+    color: colors.gold,
+    textAlign: 'center',
+  },
+  readyPrompt: {
+    fontFamily: fonts.heading,
+    fontSize: 20,
+    color: colors.cream,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  readySub: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   topBar: {
     flexDirection: 'row',

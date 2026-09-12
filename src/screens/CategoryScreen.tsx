@@ -42,9 +42,10 @@ export default function CategoryScreen({ route, navigation }: Props) {
         <MarqueeDots dotCount={9} />
 
         <Text style={styles.instructions}>
-          Hold the phone to your forehead so your friends can see the word.
-          Tilt down for correct, tilt up to pass — or use the buttons on
-          screen. You have {timerDuration} seconds.
+          You get 5 seconds to put the phone on your forehead, screen facing
+          out, so your friends can see the word. Tilt down for correct, tilt
+          up to pass — or use the buttons on screen. The round lasts{' '}
+          {timerDuration} seconds.
         </Text>
 
         <PosterButton
